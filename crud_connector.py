@@ -4,7 +4,7 @@ def conectar():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="papu19",
+        password="contraseña",
         database="tiendadelsol"
     )
 # CRUD articulos
