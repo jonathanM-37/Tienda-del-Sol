@@ -1,13 +1,15 @@
 import flet as ft
+import os
+import shutil
 from crud_connector import (
     insertar_articulo, insertar_cliente, insertar_empleado, leer_articulos, 
     leer_clientes, leer_empleados, eliminar_articulo, eliminar_cliente, 
     eliminar_empleado, actualizar_articulo, actualizar_cliente, actualizar_empleado,
     insertar_categoria, leer_categorias, actualizar_categoria, eliminar_categoria
 )
-# Variables globales para inputs
 data_fields = []
 tabla_actual = None
+imagen_subida = None
 
 def limpiar_contenido(page):
     page.controls.clear()
@@ -21,9 +23,6 @@ def crear_formulario(page, tabla):
     tabla_actual = tabla
 
     titulo = ft.Text(f"Formulario: {tabla.capitalize()}", size=24, weight="bold")
-    page.controls.append(titulo)
-
-    campos = []
 
     if tabla == "articulos":
         etiquetas = ["Código", "Nombre", "Precio", "Costo", "Existencia", "Unidad", "Descripción", "ID Categoría"]
@@ -34,28 +33,44 @@ def crear_formulario(page, tabla):
     elif tabla == "categorias":
         etiquetas = ["ID Categoría", "Nombre"]
 
-    for etiqueta in etiquetas:
-        campo = ft.TextField(label=etiqueta)
-        campos.append(campo)
-        page.controls.append(campo)
+    mitad = len(etiquetas) // 2 + len(etiquetas) % 2
+    campos_col1 = []
+    campos_col2 = []
 
-    data_fields.extend(campos)
+    for i, etiqueta in enumerate(etiquetas):
+        campo = ft.TextField(label=etiqueta, width=400)
+        if i < mitad:
+            campos_col1.append(campo)
+        else:
+            campos_col2.append(campo)
+        data_fields.append(campo)
+
+    formulario_filas = ft.Row([
+        ft.Column(campos_col1, spacing=10),
+        ft.Column(campos_col2, spacing=10)
+    ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
 
     botones_crud = ft.Row([
         ft.ElevatedButton("Insertar", on_click=lambda e: finalizar_formulario()),
         ft.ElevatedButton("Leer", on_click=lambda e: leer_datos(page)),
         ft.ElevatedButton("Actualizar", on_click=lambda e: actualizar_registro()),
         ft.ElevatedButton("Eliminar", on_click=lambda e: eliminar_registro())
-    ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
+    ], spacing=10, alignment=ft.MainAxisAlignment.CENTER)
 
     botones_finales = ft.Row([
         ft.ElevatedButton("Cancelar", on_click=lambda e: cancelar_formulario(page)),
-        ft.ElevatedButton("Regresar", on_click=lambda e: menu_principal(page))
-    ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
+        ft.ElevatedButton("Regresar", on_click=lambda e: mostrar_botones_registro(page))
+    ], spacing=10, alignment=ft.MainAxisAlignment.CENTER)
 
-    page.controls.append(ft.Divider())
-    page.controls.append(botones_crud)
-    page.controls.append(botones_finales)
+    scrollable_view = ft.Column([
+        titulo,
+        formulario_filas,
+        ft.Divider(),
+        botones_crud,
+        botones_finales
+    ], spacing=20, scroll=ft.ScrollMode.AUTO)
+
+    page.controls.append(scrollable_view)
     page.update()
 
 def finalizar_formulario():
@@ -63,7 +78,7 @@ def finalizar_formulario():
     if tabla_actual == "articulos":
         insertar_articulo(*valores)
     elif tabla_actual == "clientes":
-        insertar_cliente(*valores[1:])  # Ignora ID en insercion
+        insertar_cliente(*valores[1:])  
     elif tabla_actual == "empleados":
         insertar_empleado(*valores[1:]) 
     elif tabla_actual == "categorias":
@@ -73,10 +88,8 @@ def actualizar_registro():
     valores = [campo.value for campo in data_fields]
     
     if tabla_actual == "articulos":
-        # Asegúrate de que la lista de valores se pase en el orden correcto
         actualizar_articulo(*valores)
     elif tabla_actual == "clientes":
-        # El ID del cliente debe ser el primer valor en la lista
         actualizar_cliente(valores[0], *valores[1:])
     elif tabla_actual == "empleados":
         actualizar_empleado(valores[0], *valores[1:])
@@ -107,12 +120,16 @@ def leer_datos(page):
     elif tabla_actual == "categorias":
         resultados = leer_categorias()
 
-    page.controls.append(ft.Text(f"Registros de {tabla_actual.capitalize()}", size=20, weight="bold"))
+    elementos = [ft.Text(f"Registros de {tabla_actual.capitalize()}", size=20, weight="bold")]
 
     for fila in resultados:
-        page.controls.append(ft.Text(str(fila)))
+        elementos.append(ft.Text(str(fila)))
 
-    page.controls.append(ft.ElevatedButton("Regresar", on_click=lambda e: crear_formulario(page, tabla_actual)))
+    elementos.append(ft.ElevatedButton("Regresar", on_click=lambda e: crear_formulario(page, tabla_actual)))
+
+    page.controls.append(
+        ft.Column(elementos, scroll=ft.ScrollMode.AUTO, spacing=10)
+    )
     page.update()
 
 def cancelar_formulario(page):
@@ -120,27 +137,85 @@ def cancelar_formulario(page):
         campo.value = ""
     page.update()
 
-def menu_principal(page):
+def mostrar_botones_registro(page):
     limpiar_contenido(page)
-    
-    titulo_principal = ft.Text("Tienda del Sol", size=30, weight="bold", text_align=ft.TextAlign.CENTER)
-    page.controls.append(titulo_principal)
     page.controls.append(
-        ft.Row([
-            ft.ElevatedButton("Articulos", on_click=lambda e: crear_formulario(page, "articulos")),
-            ft.ElevatedButton("Clientes", on_click=lambda e: crear_formulario(page, "clientes")),
-            ft.ElevatedButton("Empleados", on_click=lambda e: crear_formulario(page, "empleados")),
-            ft.ElevatedButton("Categorias", on_click=lambda e: crear_formulario(page, "categorias"))
-        ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
+        ft.Column([
+            ft.Text("Registros disponibles", size=24, weight="bold"),
+            ft.Row([
+                ft.ElevatedButton("Clientes", on_click=lambda e: crear_formulario(page, "clientes")),
+                ft.ElevatedButton("Categorías", on_click=lambda e: crear_formulario(page, "categorias")),
+            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
+            ft.Row([
+                ft.ElevatedButton("Empleados", on_click=lambda e: crear_formulario(page, "empleados")),
+                ft.ElevatedButton("Artículos", on_click=lambda e: crear_formulario(page, "articulos")),
+            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
+            ft.ElevatedButton("Regresar", on_click=lambda e: menu_principal(page))
+        ], spacing=20)
     )
     page.update()
+    
+def menu_principal(page):
+    limpiar_contenido(page)
+    columna_izquierda = ft.Column([
+        ft.Text("Tienda del Sol", size=70, weight="bold", text_align=ft.TextAlign.CENTER),
+        ft.ElevatedButton("Registros", on_click=lambda e: mostrar_botones_registro(page)),
+        ft.ElevatedButton("Compras", on_click=lambda e: print("Funcionalidad de compras aún no implementada"))
+    ], spacing=20, alignment=ft.MainAxisAlignment.START)
 
+    imagen_derecha = ft.Image(
+        #-----> cambiar la ruta
+        src="C:/Users/jonathan\Documents\S5A/admin basedat/tiendadelsol/imagenes/sol.gif",  
+        width=540,
+        height=523,
+        fit=ft.ImageFit.CONTAIN
+    )
+    try:
+        articulos = leer_articulos()
+    except:
+        articulos = []
 
+    encabezados = ["Código", "Nombre", "Precio", "Costo", "Existencia", "Unidad", "Descripción", "ID Categoría"]
+    columnas = [ft.DataColumn(ft.Text(col)) for col in encabezados]
+
+    filas = []
+    for art in articulos:
+        fila = ft.DataRow([
+            ft.DataCell(ft.Text(str(art.get("codigo", "")))),
+            ft.DataCell(ft.Text(str(art.get("nombre", "")))),
+            ft.DataCell(ft.Text(str(art.get("precio", "")))),
+            ft.DataCell(ft.Text(str(art.get("costo", "")))),
+            ft.DataCell(ft.Text(str(art.get("existencia", "")))),
+            ft.DataCell(ft.Text(str(art.get("unidad", "")))),
+            ft.DataCell(ft.Text(str(art.get("descripcion", "")))),
+            ft.DataCell(ft.Text(str(art.get("id_categoria", ""))))
+        ])
+        filas.append(fila)
+    tabla_articulos = ft.DataTable(columns=columnas, rows=filas)
+
+    page.controls.append(
+    ft.Container(
+        content=ft.Column([
+            ft.Row([columna_izquierda, imagen_derecha], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+            ft.Divider(),
+            ft.Text("Productos", size=20, weight="bold"),
+            tabla_articulos
+        ], scroll=ft.ScrollMode.AUTO),
+        height=500 
+    )
+)
+
+    page.update()
+    
 def main(page: ft.Page):
     page.title = "CRUD Tienda del Sol"
-    page.window_width = 600
-    page.window_height = 600
+    page.window_width = 1000
+    page.window_height = 800
+    page.bgcolor = ft.colors.BLACK
+    page.theme_mode = ft.ThemeMode.DARK
     menu_principal(page)
 
-ft.app(target=main)
+
+if __name__ == "__main__":
+    ft.app(target=main)
 
