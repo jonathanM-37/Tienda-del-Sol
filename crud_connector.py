@@ -4,7 +4,7 @@ def conectar():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="mysql",
+        password="mysql", # cambiar en caso que no sea su contraseña
         database="tiendadelsol"
     )
 # CRUD articulos
@@ -143,3 +143,56 @@ def eliminar_categoria(id_categoria):
     cursor.execute("DELETE FROM categorias WHERE id_categoria = %s", (id_categoria,))
     con.commit()
     con.close()
+
+#crud venta 
+def insertar_venta(id_cliente):
+    con = conectar()
+    cursor = con.cursor()
+    cursor.execute("INSERT INTO ventas (id_cliente) VALUES (%s)", (id_cliente,))
+    con.commit()
+    id_venta = cursor.lastrowid
+    con.close()
+    return id_venta
+
+def insertar_detalle_venta(id_venta, codigo_articulo, cantidad, precio_venta):
+    con = conectar()
+    cursor = con.cursor()
+    cursor.execute("""
+        INSERT INTO detalle_ventas (id_venta, codigo_articulo, cantidad, precio_venta)
+        VALUES (%s, %s, %s, %s)
+    """, (id_venta, codigo_articulo, cantidad, precio_venta))
+    con.commit()
+    con.close()
+
+def actualizar_existencia_articulo(codigo_articulo, nueva_existencia):
+    con = conectar()
+    cursor = con.cursor(dictionary=True)
+
+    # Leer todos los campos actuales del artículo
+    cursor.execute("SELECT * FROM articulos WHERE codigo = %s", (codigo_articulo,))
+    art = cursor.fetchone()
+
+    if not art:
+        con.close()
+        raise Exception("Artículo no encontrado.")
+
+    # Actualizar manteniendo todos los campos, solo cambiando existencia
+    query = """
+        UPDATE articulos
+        SET nombre = %s, precio = %s, costo = %s, existencia = %s,
+            unidad = %s, descripcion = %s, id_categoria = %s
+        WHERE codigo = %s
+    """
+    cursor.execute(query, (
+        art["nombre"],
+        art["precio"],
+        art["costo"],
+        nueva_existencia,
+        art["unidad"],
+        art["descripcion"],
+        art["id_categoria"],
+        codigo_articulo
+    ))
+    con.commit()
+    con.close()
+

@@ -2,7 +2,7 @@
 
 1.-Primero que nada se debe cambiar la ruta
 donde se encuentra las imagenes del proyecto en el archivo 
-"interfz.py" en la linea 168
+"interfz.py" en la linea 169
 
 2.-instalacion de flet 
     con comandos como:

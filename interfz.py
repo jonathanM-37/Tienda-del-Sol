@@ -5,7 +5,8 @@ from crud_connector import (
     insertar_articulo, insertar_cliente, insertar_empleado, leer_articulos, 
     leer_clientes, leer_empleados, eliminar_articulo, eliminar_cliente, 
     eliminar_empleado, actualizar_articulo, actualizar_cliente, actualizar_empleado,
-    insertar_categoria, leer_categorias, actualizar_categoria, eliminar_categoria
+    insertar_categoria, leer_categorias, actualizar_categoria, eliminar_categoria,
+    insertar_venta, insertar_detalle_venta, actualizar_existencia_articulo 
 )
 data_fields = []
 tabla_actual = None
@@ -160,14 +161,14 @@ def menu_principal(page):
     columna_izquierda = ft.Column([
         ft.Text("Tienda del Sol", size=70, weight="bold", text_align=ft.TextAlign.CENTER),
         ft.ElevatedButton("Registros", on_click=lambda e: mostrar_botones_registro(page)),
-        ft.ElevatedButton("Compras", on_click=lambda e: print("Funcionalidad de compras aún no implementada"))
+        ft.ElevatedButton("Compras", on_click=lambda e: pantalla_compras(page))
     ], spacing=20, alignment=ft.MainAxisAlignment.START)
 
     imagen_derecha = ft.Image(
         #-----> cambiar la ruta
-        src="C:/Users/jonathan\Documents\S5A/admin basedat/tiendadelsol/imagenes/sol.gif",  
-        width=540,
-        height=523,
+        src="C/su/ruta/propia//tiendadelsol/imagenes/sol.jpeg",  
+        width=450,
+        height=450,
         fit=ft.ImageFit.CONTAIN
     )
     try:
@@ -206,7 +207,100 @@ def menu_principal(page):
 )
 
     page.update()
-    
+
+def pantalla_compras(page):
+    limpiar_contenido(page)
+
+    clientes = leer_clientes()
+    opciones_clientes = [
+        ft.dropdown.Option(f"{cliente['id_cliente']} - {cliente['nombre']}")
+        for cliente in clientes
+    ]
+    dropdown_clientes = ft.Dropdown(
+        label="Seleccionar cliente",
+        options=opciones_clientes,
+        width=400
+    )
+    campo_busqueda = ft.TextField(label="Buscar artículo por código o nombre", width=400)
+    tabla_resultados = ft.Column()
+
+    def buscar_articulo(e):
+        termino = campo_busqueda.value.lower()
+        articulos = leer_articulos()
+        resultados = []
+
+        for art in articulos:
+            if termino in str(art.get("codigo", "")).lower() or termino in str(art.get("nombre", "")).lower():
+                resultados.append(art)
+
+        tabla_resultados.controls.clear()
+
+        if resultados:
+            for art in resultados:
+                cantidad_field = ft.TextField(label="Cantidad", width=100)
+
+                def realizar_venta(evt, art=art, cantidad_field=cantidad_field):
+                    seleccion = dropdown_clientes.value
+                    if not seleccion:
+                        page.dialog = ft.AlertDialog(title=ft.Text("Seleccione un cliente"))
+                        page.dialog.open = True
+                        page.update()
+                        return
+
+                    id_cliente = int(seleccion.split(" - ")[0])
+                    try:
+                        cantidad = int(cantidad_field.value)
+                        existencia = int(art["existencia"])
+                        if cantidad <= 0 or cantidad > existencia:
+                            raise ValueError
+                    except:
+                        page.dialog = ft.AlertDialog(title=ft.Text("Cantidad inválida o excede existencia"))
+                        page.dialog.open = True
+                        page.update()
+                        return
+
+                    id_venta = insertar_venta(id_cliente)
+                    insertar_detalle_venta(id_venta, art["codigo"], cantidad, art["precio"])
+                    nueva_existencia = existencia - cantidad
+                    actualizar_existencia_articulo(art["codigo"], nueva_existencia)
+
+                    page.dialog = ft.AlertDialog(title=ft.Text("Venta registrada exitosamente"))
+                    page.dialog.open = True
+                    page.update()
+
+                fila = ft.Row([
+                    ft.Text(f"{art['codigo']} - {art['nombre']} | ${art['precio']} | Stock: {art['existencia']}"),
+                    cantidad_field,
+                    ft.ElevatedButton("Vender", on_click=lambda evt, a=art, c=cantidad_field: realizar_venta(evt, a, c))
+                ])
+                tabla_resultados.controls.append(fila)
+        else:
+            tabla_resultados.controls.append(ft.Text("No se encontraron artículos."))
+
+        page.update()
+  
+    boton_buscar = ft.ElevatedButton("Buscar artículo", on_click=buscar_articulo)
+
+    boton_regresar = ft.ElevatedButton("Regresar", on_click=lambda e: menu_principal(page))
+
+    # Vista principal
+    page.controls.append(
+        ft.Column([
+            ft.Text("Módulo de Compras", size=24, weight="bold"),
+            dropdown_clientes,
+            campo_busqueda,
+            boton_buscar,
+            ft.Divider(),
+            ft.Text("Resultados de artículos:", size=18, weight="bold"),
+            tabla_resultados,
+            ft.Divider(),
+            boton_regresar
+        ], spacing=20, scroll=ft.ScrollMode.AUTO)
+    )
+
+    page.update()
+
+
 def main(page: ft.Page):
     page.title = "CRUD Tienda del Sol"
     page.window_width = 1000
